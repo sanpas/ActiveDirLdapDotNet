@@ -50,7 +50,7 @@ internal sealed class UserService : IUserService
     public Task<IReadOnlyList<AdUser>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(searchTerm);
-        var escaped = LdapHelper.EscapeFilter(searchTerm);
+        var escaped = LdapHelper.EscapePattern(searchTerm);
         var filter = $"(&(objectCategory=person)(objectClass=user)(|(sAMAccountName={escaped})(cn={escaped})(mail={escaped})(displayName={escaped})))";
         return ExecutePagedSearchAsync(filter, cancellationToken);
     }
@@ -88,9 +88,9 @@ internal sealed class UserService : IUserService
             foreach (SearchResultEntry entry in response.Entries)
                 results.Add(MapUser(entry));
 
-            var pageResponse = response.Controls.OfType<PageResultResponseControl>().FirstOrDefault();
-            if (pageResponse is null || pageResponse.Cookie.Length == 0) break;
-            pageControl.Cookie = pageResponse.Cookie;
+            var cookie = LdapHelper.ExtractPageCookie(response);
+            if (cookie == null) break;
+            pageControl.Cookie = cookie;
         }
 
         return results;
