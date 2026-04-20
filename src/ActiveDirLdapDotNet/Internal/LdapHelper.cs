@@ -1,4 +1,5 @@
 using System.DirectoryServices.Protocols;
+using System.Formats.Asn1;
 using System.Globalization;
 using System.Text;
 
@@ -59,7 +60,10 @@ internal static class LdapHelper
         return DateTime.FromFileTimeUtc(ticks);
     }
 
-    /// <summary>Échappe les caractères spéciaux dans une valeur de filtre LDAP (RFC 4515).</summary>
+    /// <summary>
+    /// Échappe les caractères spéciaux LDAP (RFC 4515), y compris le wildcard *.
+    /// À utiliser pour les recherches par valeur exacte (GetBy*).
+    /// </summary>
     internal static string EscapeFilter(string value)
     {
         var sb = new StringBuilder(value.Length + 4);
@@ -68,13 +72,70 @@ internal static class LdapHelper
             sb.Append(c switch
             {
                 '\\' => "\\5c",
-                '*' => "\\2a",
-                '(' => "\\28",
-                ')' => "\\29",
+                '*'  => "\\2a",
+                '('  => "\\28",
+                ')'  => "\\29",
                 '\0' => "\\00",
-                _ => c
+                _    => c
             });
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Échappe les caractères spéciaux LDAP SAUF le wildcard *.
+    /// À utiliser pour les recherches avec joker (Search*).
+    /// </summary>
+    internal static string EscapePattern(string value)
+    {
+        var sb = new StringBuilder(value.Length + 4);
+        foreach (char c in value)
+        {
+            sb.Append(c switch
+            {
+                '\\' => "\\5c",
+                '('  => "\\28",
+                ')'  => "\\29",
+                '\0' => "\\00",
+                _    => c   // * conservé → joker LDAP
+            });
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Extrait le cookie de pagination depuis les controls d'une réponse LDAP.
+    /// Gère le path Windows (type fort PageResultResponseControl) et Linux (BER brut).
+    /// Retourne null si c'est la dernière page ou si le control est absent.
+    /// </summary>
+    internal static byte[]? ExtractPageCookie(SearchResponse response)
+    {
+        foreach (DirectoryControl ctrl in response.Controls)
+        {
+            if (ctrl is PageResultResponseControl prc)
+                return prc.Cookie.Length > 0 ? prc.Cookie : null;
+
+            // Sur Linux, le contrôle revient en DirectoryControl brut avec juste l'OID
+            if (ctrl.Type == "1.2.840.113556.1.4.319")
+                return ParseRawPageCookie(ctrl.GetValue());
+        }
+        return null;
+    }
+
+    // BER : SEQUENCE { INTEGER (totalCount), OCTET STRING (cookie) }
+    private static byte[]? ParseRawPageCookie(byte[] rawValue)
+    {
+        try
+        {
+            var reader = new AsnReader(rawValue, AsnEncodingRules.BER);
+            var seq = reader.ReadSequence();
+            seq.ReadEncodedValue();         // total count — ignoré
+            var cookie = seq.ReadOctetString();
+            return cookie.Length > 0 ? cookie : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
