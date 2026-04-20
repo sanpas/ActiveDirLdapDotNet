@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ActiveDirLdapDotNet</RootNamespace>
+    <AssemblyName>ActiveDirLdapDotNet</AssemblyName>
+    <PackageId>ActiveDirLdapDotNet</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>sanpas</Authors>
+    <Description>Bibliothèque .NET 10 pour interroger un Active Directory via LDAP.</Description>
+    <PackageTags>ldap;active-directory;dotnet;ad</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>
